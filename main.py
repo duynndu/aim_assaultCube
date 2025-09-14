@@ -40,6 +40,9 @@ PLAYER_COUNT_ADDR = 0x00591FD4
 AIMBOT_REGION_WIDTH = 640
 AIMBOT_REGION_HEIGHT = 640
 
+#config
+AIMBOT_ALL = True  # True: bắn tất cả, False: không bắn team mình
+
 countPlayers = pm.read_int(PLAYER_COUNT_ADDR)
 teamName = {0: "CLA", 1: "RVSF"}
 pMe = pm.read_int(module + ME_PTR_ADDR)
@@ -59,7 +62,6 @@ class GameOverlay(QtWidgets.QWidget):
             QtCore.Qt.Tool
         )
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
-        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
         self.boxes = []
         self.texts = []
 
@@ -183,7 +185,7 @@ class GameOverlay(QtWidgets.QWidget):
                 dx = target_x - center_x
                 dy = target_y - center_y
                 win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, int(dx), int(dy), 0, 0)
-                time.sleep(0.01)
+                time.sleep(0.003)
 
         except Exception as e:
             # Bạn có thể log lỗi nếu cần
@@ -191,19 +193,9 @@ class GameOverlay(QtWidgets.QWidget):
             pass
 
     
-    def get_closest_entity(
-        self,
-        viewMatrix,
-        screen_width=SCREEN_WIDTH,
-        screen_height=SCREEN_HEIGHT,
-        max_distance=9999
-    ):
+    def get_closest_entity(self, viewMatrix):
         closest_ent = None
-        closest_dist = max_distance
-
-        xMe = pm.read_float(pMe + X_OFFSET)
-        yMe = pm.read_float(pMe + Y_OFFSET)
-        zMe = pm.read_float(pMe + Z_OFFSET)
+        closest_dist = 9999
         teamMe = pm.read_int(pMe + TEAM_OFFSET)
 
         countPlayers = pm.read_int(PLAYER_COUNT_ADDR)
@@ -215,7 +207,7 @@ class GameOverlay(QtWidgets.QWidget):
             try:
                 hp = pm.read_int(ent + HP_OFFSET)
                 team = pm.read_int(ent + TEAM_OFFSET)
-                if not (0 < hp <= 100) or team == teamMe:
+                if not (0 < hp <= 100) or team == teamMe if not AIMBOT_ALL else False:
                     continue
 
                 # Lấy tọa độ 3D
@@ -224,16 +216,16 @@ class GameOverlay(QtWidgets.QWidget):
                 z = pm.read_float(ent + Z_OFFSET)
 
                 # Chuyển sang tọa độ 2D
-                screen_pos = self.world_to_screen([x, y, z], viewMatrix, screen_width, screen_height)
+                screen_pos = self.world_to_screen([x, y, z], viewMatrix, SCREEN_WIDTH, SCREEN_HEIGHT)
                 if screen_pos is None:
                     continue
                 sx, sy = screen_pos
-                if not (0 <= sx <= screen_width and 0 <= sy <= screen_height):
+                if not (0 <= sx <= SCREEN_WIDTH and 0 <= sy <= SCREEN_HEIGHT):
                     continue
 
                 # Ưu tiên entity gần tâm màn hình
-                dx = sx - screen_width / 2
-                dy = sy - screen_height / 2
+                dx = sx - SCREEN_WIDTH / 2
+                dy = sy - SCREEN_HEIGHT / 2
                 dist = np.hypot(dx, dy)
 
                 if dist < closest_dist:
